@@ -27,7 +27,6 @@ spec:
   steps:
     - name: post
       image: ghcr.io/chmouel/agents-image:latest
-      command: ["/bin/bash", "-c"]
       env:
         - name: GH_TOKEN
           valueFrom:
@@ -35,4 +34,7 @@ spec:
               name: "$(params.git_auth_secret)"
               key: "git-provider-token"
       args:
-        - paco post --repo=$(params.repo_owner)/$(params.repo_name) --pr=$(params.pull_request_number) --workspace=$(workspaces.source.path)
+        - post
+        - --repo=$(params.repo_owner)/$(params.repo_name)
+        - --pr=$(params.pull_request_number)
+        - --workspace=$(workspaces.source.path)
