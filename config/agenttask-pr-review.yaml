@@ -1,0 +1,33 @@
+# The AgentTask CR our pipeline's "review" PipelineTask references
+# (taskRef: {apiVersion: agent.tekton.dev/v1alpha1, kind: AgentTask, name:
+# pr-review}). Mirrors the shape of agenttask-adapter-lightspeed's own
+# examples/lightspeed-analysis.yaml: a single "request" string param, and
+# the two results the analysis-v1 profile always produces.
+#
+# Cluster-admin prerequisite (documented in README.md): a cluster-scoped
+# Agent named "tekton-analysis" (the fixed name the analysis-v1 profile
+# requires) backed by a real LLMProvider, plus the agenttask and
+# agenttask-adapter-lightspeed controllers installed and running.
+apiVersion: agent.tekton.dev/v1alpha1
+kind: AgentTask
+metadata:
+  name: pr-review
+  namespace: agenttask-paco
+spec:
+  description: >-
+    Review a pull request's diff via the Lightspeed Agentic Operator,
+    routed through the analysis-v1 profile (read-only, no remediation
+    actions are ever taken against the cluster).
+  params:
+    - name: request
+      type: string
+  results:
+    - name: outcome
+      description: "action-required or no-action-required"
+    - name: analysis-result-name
+      description: Name of the native agentic.openshift.io/v1alpha1 AnalysisResult object.
+  adapterRef:
+    name: lightspeed.openshift.io/agenticrun
+    params:
+      - name: profile
+        value: analysis-v1
