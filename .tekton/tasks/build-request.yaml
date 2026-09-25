@@ -25,6 +25,12 @@ spec:
     - name: skip
       description: '"true" when there is nothing to review; gates the "review" and "translate-result" tasks.'
   steps:
+    - name: debug-workspace
+      image: busybox
+      script: |
+        echo "=== Workspace contents ==="
+        ls -laR $(workspaces.source.path)
+        echo "=== End workspace contents ==="
     - name: build-request
       image: ghcr.io/theakshaypant/agenttask-paco/build-request:latest
       env:
