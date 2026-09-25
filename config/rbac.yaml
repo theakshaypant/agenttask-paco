@@ -1,12 +1,8 @@
-# Grants the pipeline's ServiceAccount permission to run the "review"
-# AgentTask (create/get/list/watch CustomRuns of kind AgentTask, which the
-# agenttask controller reconciles) and to read the AnalysisResult objects
-# the real Lightspeed Agentic Operator produces.
-#
-# This does not grant any permission to create/patch/delete AgenticRun,
-# Agent, LLMProvider, or any other Lightspeed-operator-owned resource -
-# agenttask-paco's Tasks only ever read AnalysisResult, never drive the
-# operator directly.
+# Grants pipeline ServiceAccount:
+# - create/get/list/watch on CustomRuns (to run the AgentTask)
+# - get on AnalysisResult (to read Lightspeed output)
+# Does not grant permission to create/patch/delete AgenticRun, Agent, or
+# LLMProvider — translate-result only reads AnalysisResult.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:

@@ -1,13 +1,9 @@
-# The AgentTask CR our pipeline's "review" PipelineTask references
-# (taskRef: {apiVersion: agent.tekton.dev/v1alpha1, kind: AgentTask, name:
-# pr-review}). Mirrors the shape of agenttask-adapter-lightspeed's own
-# examples/lightspeed-analysis.yaml: a single "request" string param, and
-# the two results the analysis-v1 profile always produces.
+# AgentTask CR referenced by the pipeline's "review" step. Takes a single
+# "request" param, returns "outcome" and "analysis-result-name" results
+# (analysis-v1 profile contract).
 #
-# Cluster-admin prerequisite (documented in README.md): a cluster-scoped
-# Agent named "tekton-analysis" (the fixed name the analysis-v1 profile
-# requires) backed by a real LLMProvider, plus the agenttask and
-# agenttask-adapter-lightspeed controllers installed and running.
+# Prerequisites: cluster-scoped Agent/tekton-analysis (with LLMProvider),
+# agenttask + agenttask-adapter-lightspeed controllers running.
 apiVersion: agent.tekton.dev/v1alpha1
 kind: AgentTask
 metadata:

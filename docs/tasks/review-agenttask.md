@@ -5,12 +5,12 @@
 [`.tekton/pr-review-pipeline.yaml`](../../.tekton/pr-review-pipeline.yaml).
 
 There is no Tekton `Task` or container image for this step, and nothing
-here to build or push. It's a `taskRef` to a cluster-scoped
-`agent.tekton.dev/v1alpha1 AgentTask` custom resource, executed by the
-`agenttask` controller + `agenttask-adapter-lightspeed` adapter (installed
-once, cluster-wide — see the repo root `README.md`'s "Install" section),
-which in turn drives the real OpenShift Lightspeed Agentic Operator against
-a real LLM provider.
+here to build or push. It's a `taskRef` to a namespace-scoped
+`agent.tekton.dev/v1alpha1 AgentTask` custom resource (pre-installed via
+`kubectl apply -k config/`), executed by the `agenttask` controller +
+`agenttask-adapter-lightspeed` adapter (installed once, cluster-wide — see
+the repo root `README.md`'s "Install" section), which in turn drives the
+real OpenShift Lightspeed Agentic Operator against a real LLM provider.
 
 ## What it does
 

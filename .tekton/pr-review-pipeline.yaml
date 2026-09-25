@@ -1,23 +1,13 @@
-# agenttask-paco's replacement for .tekton/paco.yaml: same triggers
-# (PR opened/reopened, "/paco review"/"/paco summary" comments) and reuses
-# the real, unmodified paco-cli binary for "diff" and "post", but replaces
-# the "review" step's engine with an AgentTask/agenttask-adapter-lightspeed
-# CustomTask backed by a real Lightspeed Agentic Operator + OpenAI
-# LLMProvider, instead of opencode/Vertex.
+# Replaces .tekton/paco.yaml's review step with an AgentTask CustomRun.
+# Same triggers ("/paco review", PR open/reopen), same output (sticky
+# comment + inline suggestions). Reuses paco-cli for diff/post; only the
+# LLM analysis engine changes (AgentTask + Lightspeed instead of
+# opencode/Vertex).
 #
-# Follows the same convention as this monorepo's own .tekton/tasks/ +
-# .tekton/release-pipeline.yaml: each step is a standalone Task under
-# .tekton/tasks/, referenced here by name via taskRef. Pipelines-as-Code
-# recursively walks the whole .tekton/ directory and resolves any locally
-# defined Task by name automatically - no separate cluster install needed
-# for build-request/translate-result/paco-diff/paco-post. The only
-# cluster-admin, one-time prerequisite is the "review" step's AgentTask CR
-# (config/agenttask-pr-review.yaml) plus RBAC (config/rbac.yaml), since
-# AgentTask/CustomRun is a real, cluster-scoped Custom Task and (unlike an
-# ordinary Task) can't be resolved from a file the same way. See README.md
-# "Install" for the full prerequisite list (agenttask +
-# agenttask-adapter-lightspeed controllers, a real Lightspeed Agentic
-# Operator with Agent/tekton-analysis + an OpenAI LLMProvider).
+# PaC resolves build-request/translate-result/paco-diff/paco-post from
+# .tekton/tasks/ automatically. The "review" step refs a namespace-scoped
+# AgentTask CR (config/agenttask-pr-review.yaml) that must be pre-installed
+# via kubectl apply -k config/.
 ---
 apiVersion: tekton.dev/v1
 kind: PipelineRun
