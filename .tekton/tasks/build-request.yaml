@@ -27,6 +27,7 @@ spec:
   steps:
     - name: build-request
       image: ghcr.io/theakshaypant/agenttask-paco/build-request:latest
+      imagePullPolicy: IfNotPresent
       env:
         - name: TRIGGER_COMMENT
           value: $(params.trigger-comment)
