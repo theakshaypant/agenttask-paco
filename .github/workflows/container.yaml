@@ -1,0 +1,62 @@
+name: Build and publish task images to ghcr with ko
+
+on:
+  push:
+    paths:
+      - "cmd/**"
+      - "pkg/**"
+      - "go.mod"
+      - "go.sum"
+      - ".ko.yaml"
+      - ".github/workflows/container.yaml"
+
+env:
+  PLATFORMS: linux/amd64,linux/arm64
+
+jobs:
+  build-and-push-images:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+
+      - uses: ko-build/setup-ko@v0.9
+
+      - name: Log in to ghcr.io
+        run: echo "${{ github.token }}" | ko login ghcr.io --username "${{ github.actor }}" --password-stdin
+
+      - name: Build and push images
+        shell: bash
+        run: |
+          set -euo pipefail
+          releaseBranchFormat='release-v'
+          if [[ ${GITHUB_REF_NAME} == ${releaseBranchFormat}* ]]; then
+            tag=v$(echo "${GITHUB_REF_NAME}" | sed "s,${releaseBranchFormat},,")
+          elif [[ ${GITHUB_REF} == refs/tags/v* ]]; then
+            tag=${GITHUB_REF_NAME}
+          elif [[ ${GITHUB_REF} == refs/pull/* ]]; then
+            tag=pr-$(echo "${GITHUB_REF}" | cut -c11- | sed 's,/merge,,')
+          else
+            tag=$(echo "${GITHUB_REF_NAME}" | sed 's,/merge,,' | sed 's,[/.],-,g')
+          fi
+
+          KO_DOCKER_REPO=ghcr.io/theakshaypant/agenttask-paco/build-request \
+            ko build --bare -t "${tag}" --platform="${PLATFORMS}" ./cmd/build-request
+
+          KO_DOCKER_REPO=ghcr.io/theakshaypant/agenttask-paco/translate-result \
+            ko build --bare -t "${tag}" --platform="${PLATFORMS}" ./cmd/translate-result
