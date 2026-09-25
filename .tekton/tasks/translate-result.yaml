@@ -28,7 +28,6 @@ spec:
   steps:
     - name: translate-result
       image: ghcr.io/theakshaypant/agenttask-paco/translate-result:latest
-      imagePullPolicy: IfNotPresent
       # Requires the ServiceAccount running this PipelineRun to be bound to
       # config/rbac.yaml's Role (get on agentic.openshift.io/v1alpha1
       # analysisresults).

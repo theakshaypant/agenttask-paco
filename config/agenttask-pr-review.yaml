@@ -8,7 +8,7 @@ apiVersion: agent.tekton.dev/v1alpha1
 kind: AgentTask
 metadata:
   name: pr-review
-  namespace: agenttask-paco
+  namespace: default
 spec:
   description: >-
     Review a pull request's diff via the Lightspeed Agentic Operator,

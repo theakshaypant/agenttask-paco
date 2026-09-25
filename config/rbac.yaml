@@ -7,7 +7,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: agenttask-paco-pipeline
-  namespace: agenttask-paco
+  namespace: default
 rules:
   - apiGroups: ["tekton.dev"]
     resources: ["customruns"]
@@ -20,11 +20,11 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: agenttask-paco-pipeline
-  namespace: agenttask-paco
+  namespace: default
 subjects:
   - kind: ServiceAccount
     name: pipeline
-    namespace: agenttask-paco
+    namespace: default
 roleRef:
   kind: Role
   name: agenttask-paco-pipeline
