@@ -1,0 +1,22 @@
+defaultBaseImage: gcr.io/distroless/static:nonroot
+builds:
+  - id: build-request
+    dir: .
+    main: ./cmd/build-request
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+  - id: translate-result
+    dir: .
+    main: ./cmd/translate-result
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
