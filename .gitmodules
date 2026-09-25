@@ -1,0 +1,3 @@
+[submodule "lightspeed-agentic-operator"]
+	path = lightspeed-agentic-operator
+	url = https://github.com/openshift/lightspeed-agentic-operator.git
