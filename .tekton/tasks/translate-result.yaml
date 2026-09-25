@@ -1,0 +1,39 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: translate-result
+  annotations:
+    tekton.dev/tags: "ai-review, paco, agenttask"
+    tekton.dev/displayName: "Translate the AnalysisResult into paco-cli's review schema"
+spec:
+  description: >-
+    Fetches the agentic.openshift.io/v1alpha1 AnalysisResult the "review"
+    AgentTask step created (via a dynamic client) and maps its
+    diagnosis/options fields - including any embedded "paco-review" fenced
+    per-line comment block (pkg/promptbuild.ExtractEmbedded) - into
+    paco-cli's own ".paco-review.json" schema (pkg/review), so the
+    unmodified "paco post" step can publish it unchanged.
+  params:
+    - name: skip
+      type: string
+      default: "false"
+    - name: outcome
+      type: string
+      default: ""
+    - name: analysis-result-name
+      type: string
+      default: ""
+  workspaces:
+    - name: source
+  steps:
+    - name: translate-result
+      image: ghcr.io/theakshaypant/agenttask-paco/translate-result:latest
+      # Requires the ServiceAccount running this PipelineRun to be bound to
+      # config/rbac.yaml's Role (get on agentic.openshift.io/v1alpha1
+      # analysisresults).
+      args:
+        - --workspace=$(workspaces.source.path)
+        - --namespace=$(context.taskRun.namespace)
+        - --skip=$(params.skip)
+        - --outcome=$(params.outcome)
+        - --analysis-result-name=$(params.analysis-result-name)

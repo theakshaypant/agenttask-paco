@@ -1,0 +1,43 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: paco-diff
+  annotations:
+    tekton.dev/tags: "ai-review, paco"
+    tekton.dev/displayName: "Paco diff (real paco-cli, unmodified)"
+spec:
+  description: >-
+    Fetches the pull request diff, existing review feedback,
+    .tekton/ai/REVIEW.md rules, and detected toolchain versions into the
+    shared workspace, using the real, unmodified paco-cli "diff"
+    subcommand (github.com/pipelines-as-code/paco-cli).
+  params:
+    - name: repo_owner
+      type: string
+    - name: repo_name
+      type: string
+    - name: pull_request_number
+      type: string
+    - name: comment_id
+      type: string
+      default: ""
+    - name: git_auth_secret
+      type: string
+      description: Name of the Secret PaC injects with a "git-provider-token" key.
+  workspaces:
+    - name: source
+  steps:
+    - name: diff
+      image: ghcr.io/chmouel/agents-image:latest
+      env:
+        - name: GH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: "$(params.git_auth_secret)"
+              key: "git-provider-token"
+      args:
+        - diff
+        - --repo=$(params.repo_owner)/$(params.repo_name)
+        - --pr=$(params.pull_request_number)
+        - --comment-id=$(params.comment_id)
+        - --workspace=$(workspaces.source.path)

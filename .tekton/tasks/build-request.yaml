@@ -1,0 +1,36 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: build-request
+  annotations:
+    tekton.dev/tags: "ai-review, paco, agenttask"
+    tekton.dev/displayName: "Build the review request prompt"
+spec:
+  description: >-
+    Reads the ".pr.diff"/".existing-feedback.txt"/".tekton/ai/REVIEW.md"/
+    ".toolchain-versions" artifacts paco-diff wrote to the shared workspace,
+    renders the single free-text "request" string sent to the "review"
+    AgentTask step (pkg/promptbuild), and detects paco-cli's own
+    diff-step "skip" case (no reviewable diff) to short-circuit the rest
+    of the pipeline.
+  params:
+    - name: trigger-comment
+      type: string
+      default: ""
+  workspaces:
+    - name: source
+  results:
+    - name: request
+      description: The rendered prompt to send to the "review" AgentTask step.
+    - name: skip
+      description: '"true" when there is nothing to review; gates the "review" and "translate-result" tasks.'
+  steps:
+    - name: build-request
+      image: ghcr.io/theakshaypant/agenttask-paco/build-request:latest
+      env:
+        - name: TRIGGER_COMMENT
+          value: $(params.trigger-comment)
+      args:
+        - --workspace=$(workspaces.source.path)
+        - --request-out=$(results.request.path)
+        - --skip-out=$(results.skip.path)

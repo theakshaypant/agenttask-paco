@@ -1,0 +1,144 @@
+# agenttask-paco's replacement for .tekton/paco.yaml: same triggers
+# (PR opened/reopened, "/paco review"/"/paco summary" comments) and reuses
+# the real, unmodified paco-cli binary for "diff" and "post", but replaces
+# the "review" step's engine with an AgentTask/agenttask-adapter-lightspeed
+# CustomTask backed by a real Lightspeed Agentic Operator + OpenAI
+# LLMProvider, instead of opencode/Vertex.
+#
+# Follows the same convention as this monorepo's own .tekton/tasks/ +
+# .tekton/release-pipeline.yaml: each step is a standalone Task under
+# .tekton/tasks/, referenced here by name via taskRef. Pipelines-as-Code
+# recursively walks the whole .tekton/ directory and resolves any locally
+# defined Task by name automatically - no separate cluster install needed
+# for build-request/translate-result/paco-diff/paco-post. The only
+# cluster-admin, one-time prerequisite is the "review" step's AgentTask CR
+# (config/agenttask-pr-review.yaml) plus RBAC (config/rbac.yaml), since
+# AgentTask/CustomRun is a real, cluster-scoped Custom Task and (unlike an
+# ordinary Task) can't be resolved from a file the same way. See README.md
+# "Install" for the full prerequisite list (agenttask +
+# agenttask-adapter-lightspeed controllers, a real Lightspeed Agentic
+# Operator with Agent/tekton-analysis + an OpenAI LLMProvider).
+---
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: agenttask-paco-review
+  annotations:
+    pipelinesascode.tekton.dev/on-cel-expression: |
+      event == "pull_request" && target_branch == "main" && (body.action == "opened" || body.action == "reopened")
+    pipelinesascode.tekton.dev/on-comment: "^/paco[[:space:]]+(review|summary)[[:space:]]*$"
+    pipelinesascode.tekton.dev/max-keep-runs: "2"
+    pipelinesascode.tekton.dev/cancel-in-progress: "true"
+spec:
+  params:
+    - name: repo_owner
+      value: "{{repo_owner}}"
+    - name: repo_name
+      value: "{{repo_name}}"
+    - name: pull_request_number
+      value: "{{pull_request_number}}"
+    - name: trigger_comment
+      value: |
+        {{ trigger_comment }}
+    - name: comment_id
+      value: "{{ cel: has(body.comment) && has(body.comment.id) ? string(body.comment.id) : '' }}"
+    - name: git_auth_secret
+      value: "{{git_auth_secret}}"
+  pipelineSpec:
+    params:
+      - name: repo_owner
+      - name: repo_name
+      - name: pull_request_number
+      - name: trigger_comment
+      - name: comment_id
+        default: ""
+      - name: git_auth_secret
+    workspaces:
+      - name: source
+    tasks:
+      - name: paco-diff
+        displayName: "Fetch PR diff via paco (real paco-cli, unmodified)"
+        taskRef:
+          name: paco-diff
+        params:
+          - name: repo_owner
+            value: "$(params.repo_owner)"
+          - name: repo_name
+            value: "$(params.repo_name)"
+          - name: pull_request_number
+            value: "$(params.pull_request_number)"
+          - name: comment_id
+            value: "$(params.comment_id)"
+          - name: git_auth_secret
+            value: "$(params.git_auth_secret)"
+        workspaces:
+          - name: source
+            workspace: source
+
+      - name: build-request
+        displayName: "Render the review request prompt"
+        runAfter: ["paco-diff"]
+        taskRef:
+          name: build-request
+        params:
+          - name: trigger-comment
+            value: "$(params.trigger_comment)"
+        workspaces:
+          - name: source
+            workspace: source
+
+      - name: review
+        displayName: "Run the review via AgentTask + Lightspeed"
+        runAfter: ["build-request"]
+        when:
+          - input: "$(tasks.build-request.results.skip)"
+            operator: notin
+            values: ["true"]
+        taskRef:
+          apiVersion: agent.tekton.dev/v1alpha1
+          kind: AgentTask
+          name: pr-review
+        params:
+          - name: request
+            value: "$(tasks.build-request.results.request)"
+
+      - name: translate-result
+        displayName: "Translate the AnalysisResult into paco-cli's review schema"
+        runAfter: ["review"]
+        when:
+          - input: "$(tasks.build-request.results.skip)"
+            operator: notin
+            values: ["true"]
+        taskRef:
+          name: translate-result
+        params:
+          - name: skip
+            value: "$(tasks.build-request.results.skip)"
+          - name: outcome
+            value: "$(tasks.review.results.outcome)"
+          - name: analysis-result-name
+            value: "$(tasks.review.results.analysis-result-name)"
+        workspaces:
+          - name: source
+            workspace: source
+
+      - name: paco-post
+        displayName: "Post the review to the pull request (real paco-cli, unmodified)"
+        runAfter: ["translate-result", "build-request"]
+        taskRef:
+          name: paco-post
+        params:
+          - name: repo_owner
+            value: "$(params.repo_owner)"
+          - name: repo_name
+            value: "$(params.repo_name)"
+          - name: pull_request_number
+            value: "$(params.pull_request_number)"
+          - name: git_auth_secret
+            value: "$(params.git_auth_secret)"
+        workspaces:
+          - name: source
+            workspace: source
+  workspaces:
+    - name: source
+      emptyDir: {}

@@ -1,0 +1,40 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: paco-post
+  annotations:
+    tekton.dev/tags: "ai-review, paco"
+    tekton.dev/displayName: "Post the review to the pull request (real paco-cli, unmodified)"
+spec:
+  description: >-
+    Reads ".paco-review.json" (written by "translate-result" instead of
+    paco-cli's own "review" step) from the shared workspace and
+    posts/updates the sticky PR review - including genuine inline
+    per-line comments when present - using the real, unmodified paco-cli
+    "post" subcommand (github.com/pipelines-as-code/paco-cli).
+  params:
+    - name: repo_owner
+      type: string
+    - name: repo_name
+      type: string
+    - name: pull_request_number
+      type: string
+    - name: git_auth_secret
+      type: string
+      description: Name of the Secret PaC injects with a "git-provider-token" key.
+  workspaces:
+    - name: source
+  steps:
+    - name: post
+      image: ghcr.io/chmouel/agents-image:latest
+      env:
+        - name: GH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: "$(params.git_auth_secret)"
+              key: "git-provider-token"
+      args:
+        - post
+        - --repo=$(params.repo_owner)/$(params.repo_name)
+        - --pr=$(params.pull_request_number)
+        - --workspace=$(workspaces.source.path)
