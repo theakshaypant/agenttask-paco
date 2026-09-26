@@ -72,7 +72,7 @@ func run(args []string) error {
 		return fmt.Errorf("writing mode artifact: %w", err)
 	}
 
-	prompt := promptbuild.Bound(promptbuild.BuildPrompt(mode, string(diff), feedback, reviewRules, toolchains))
+	prompt := promptbuild.BuildBoundedPrompt(mode, string(diff), feedback, reviewRules, toolchains)
 	return writeOutputs(*requestOut, prompt, *skipOut, false)
 }
 

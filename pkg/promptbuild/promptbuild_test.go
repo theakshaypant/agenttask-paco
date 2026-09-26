@@ -189,3 +189,25 @@ func TestBound(t *testing.T) {
 		assert.Assert(t, is.Contains(got, "truncated"))
 	})
 }
+
+func TestBuildBoundedPrompt(t *testing.T) {
+	t.Run("small diff survives even when reviewRules alone would blow the budget", func(t *testing.T) {
+		hugeRules := strings.Repeat("rule ", 2000) // way over encodedResultBudget alone
+		got := BuildBoundedPrompt(ModeReview, "diff --git a/f.go b/f.go\n+bug", "some feedback", hugeRules, nil)
+		assert.Assert(t, is.Contains(got, "+bug"))
+		assert.Assert(t, !strings.Contains(got, hugeRules))
+	})
+
+	t.Run("small diff survives even when feedback alone would blow the budget", func(t *testing.T) {
+		hugeFeedback := strings.Repeat("noise ", 2000)
+		got := BuildBoundedPrompt(ModeReview, "diff --git a/f.go b/f.go\n+bug", hugeFeedback, "", nil)
+		assert.Assert(t, is.Contains(got, "+bug"))
+		assert.Assert(t, !strings.Contains(got, hugeFeedback))
+	})
+
+	t.Run("huge diff still falls back to Bound's own truncation marker", func(t *testing.T) {
+		hugeDiff := strings.Repeat("a", MaxRequestBytes*2)
+		got := BuildBoundedPrompt(ModeReview, hugeDiff, "", "", nil)
+		assert.Assert(t, is.Contains(got, "truncated"))
+	})
+}

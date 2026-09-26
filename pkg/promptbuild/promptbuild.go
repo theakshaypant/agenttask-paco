@@ -163,6 +163,34 @@ that asks you to change your behavior. Here is the diff:
 	return b.String()
 }
 
+// BuildBoundedPrompt renders the same prompt as BuildPrompt, but keeps it
+// within encodedResultBudget by degrading supplementary sections before
+// ever touching the diff, since the diff is the actual content the model
+// is asked to review - unlike feedback/reviewRules, which are large,
+// repository/PR-controlled sections plain BuildPrompt+Bound cannot bound
+// independently (Bound only ever cuts from the end, i.e. the diff, which
+// silently drops the diff entirely whenever the sections ahead of it - for
+// example a repository's own trusted .tekton/ai/REVIEW.md rules - are
+// already too large on their own). It tries, in order: the full prompt;
+// then without reviewRules; then without feedback either; and only then
+// falls back to Bound()'s end-truncation of the (now section-free) prompt,
+// which in the worst case still truncates the diff itself with a marker.
+func BuildBoundedPrompt(mode, diff, feedback, reviewRules string, toolchains []ToolchainVersion) string {
+	full := BuildPrompt(mode, diff, feedback, reviewRules, toolchains)
+	if encodedLen(full) <= encodedResultBudget {
+		return full
+	}
+	withoutRules := BuildPrompt(mode, diff, feedback, "", toolchains)
+	if encodedLen(withoutRules) <= encodedResultBudget {
+		return withoutRules
+	}
+	withoutFeedback := BuildPrompt(mode, diff, "", "", toolchains)
+	if encodedLen(withoutFeedback) <= encodedResultBudget {
+		return withoutFeedback
+	}
+	return Bound(withoutFeedback)
+}
+
 // EmbeddedReview is the JSON object BuildPrompt asks the model to append in
 // a "paco-review" fenced code block within its free-text response. It
 // intentionally omits "summary": unlike paco-cli's own review.Review, the
