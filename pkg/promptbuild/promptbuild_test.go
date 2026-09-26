@@ -149,6 +149,18 @@ func TestExtractEmbedded(t *testing.T) {
 			wantProse: "prose\n```paco-review\nnot json\n```",
 			wantOK:    false,
 		},
+		{
+			name: "unescaped quotes around a backtick-quoted literal are repaired",
+			text: "Looks risky.\n\n```paco-review\n" +
+				"{\"review_score\":{\"rating\":3,\"reason\":\"panics on empty input\"}," +
+				"\"security_sensitive\":false,\"comments\":[{\"path\":\"a.go\",\"line\":5," +
+				"\"severity\":\"medium\",\"body\":\"should return `\"\"` for no words\"}]}" +
+				"\n```",
+			wantProse:  "Looks risky.",
+			wantOK:     true,
+			wantRating: 3,
+			wantLen:    1,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

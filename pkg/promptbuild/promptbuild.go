@@ -95,7 +95,14 @@ Only include a comment when you are confident it identifies a real bug,
 security issue, or missed edge case introduced by this diff. Anchor every
 comment to a line that was actually added in the diff (never a context or
 removed line). It is fine for "comments" to be an empty array. Do not put
-any text after the closing fence of the "paco-review" code block.`
+any text after the closing fence of the "paco-review" code block.
+
+The fenced block must be strictly valid JSON. Every double-quote character
+inside a string value - including quotes you would normally use to
+markdown-quote an identifier or literal, like ` + "`" + `""` + "`" + ` or ` + "`" + `"foo"` + "`" + ` - must be
+escaped as \" or avoided entirely (prefer naming things without quotes,
+e.g. "an empty string" instead of ` + "`" + `""` + "`" + `). Do not wrap quoted text in
+backticks inside a string value.`
 
 const summaryOnlyInstructions = `Only produce the "summary" and "review_score" fields with real content;
 return an empty "comments" array regardless of what you find - this is a
@@ -220,11 +227,73 @@ func ExtractEmbedded(text string) (prose string, embedded *EmbeddedReview, ok bo
 	if loc == nil {
 		return text, nil, false
 	}
+	inner := text[loc[2]:loc[3]]
 	var er EmbeddedReview
-	if err := json.Unmarshal([]byte(text[loc[2]:loc[3]]), &er); err != nil {
+	if err := json.Unmarshal([]byte(inner), &er); err != nil {
+		// Models occasionally markdown-quote an identifier or literal
+		// (e.g. `""` or `foo`) inside a JSON string value without
+		// escaping the inner double quotes, which breaks strict JSON
+		// parsing despite jsonSchemaInstructions asking it not to.
+		// Repair that one known failure mode before giving up entirely.
+		if repaired := repairUnescapedQuotes(inner); repaired != inner {
+			if err := json.Unmarshal([]byte(repaired), &er); err == nil {
+				return strings.TrimSpace(text[:loc[0]]), &er, true
+			}
+		}
 		return text, nil, false
 	}
 	return strings.TrimSpace(text[:loc[0]]), &er, true
+}
+
+// jsonStringCloser is the set of characters that may legitimately follow a
+// JSON string's closing quote (ignoring whitespace): the next field's
+// comma, the enclosing object/array's closer, or a field name's colon.
+const jsonStringCloser = ",}]:"
+
+// repairUnescapedQuotes escapes double-quote characters that appear inside
+// a JSON string value without being properly escaped - the one known way
+// models violate jsonSchemaInstructions's "escape every double quote"
+// rule, typically by markdown-quoting a literal like `""` inside a
+// "body"/"reason" value. It performs a single forward scan tracking
+// string-open/close state: a '"' encountered while already inside a
+// string is treated as a real closer only if the next non-whitespace
+// character is one JSON would actually allow there (jsonStringCloser);
+// otherwise it's stray content and gets escaped in place. Already-escaped
+// sequences (preceded by '\\') are copied through untouched.
+func repairUnescapedQuotes(s string) string {
+	var b strings.Builder
+	runes := []rune(s)
+	n := len(runes)
+	inString := false
+	for i := 0; i < n; i++ {
+		c := runes[i]
+		if c == '\\' && inString && i+1 < n {
+			b.WriteRune(c)
+			i++
+			b.WriteRune(runes[i])
+			continue
+		}
+		if c != '"' {
+			b.WriteRune(c)
+			continue
+		}
+		if !inString {
+			inString = true
+			b.WriteRune(c)
+			continue
+		}
+		j := i + 1
+		for j < n && (runes[j] == ' ' || runes[j] == '\t' || runes[j] == '\n' || runes[j] == '\r') {
+			j++
+		}
+		if j >= n || strings.ContainsRune(jsonStringCloser, runes[j]) {
+			inString = false
+			b.WriteRune(c)
+			continue
+		}
+		b.WriteString(`\"`)
+	}
+	return b.String()
 }
 
 // MaxRequestBytes is the agenttask-adapter-lightspeed analysis-v1 profile's
