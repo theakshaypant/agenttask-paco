@@ -131,4 +131,17 @@ spec:
             workspace: source
   workspaces:
     - name: source
-      emptyDir: {}
+      # NOTE: must be PVC-backed (not emptyDir). Each Task in this
+      # pipeline runs in its own pod, and an emptyDir volume is scoped to
+      # a single pod - it is never actually shared across the separate
+      # paco-diff/build-request/review/... TaskRun pods. Using emptyDir
+      # here silently made build-request see an empty workspace (no
+      # .pr.diff), causing it to report skip=true and the "review"
+      # AgentTask step to be skipped on every real PR.
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
