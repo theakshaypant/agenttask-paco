@@ -1,4 +1,6 @@
-# Grants pipeline ServiceAccount:
+# Grants the "default" ServiceAccount (the one Pipelines as Code actually runs
+# PipelineRuns under in this namespace, since no dedicated "pipeline"
+# ServiceAccount is configured):
 # - create/get/list/watch on CustomRuns (to run the AgentTask)
 # - get on AnalysisResult (to read Lightspeed output)
 # Does not grant permission to create/patch/delete AgenticRun, Agent, or
@@ -23,7 +25,7 @@ metadata:
   namespace: default
 subjects:
   - kind: ServiceAccount
-    name: pipeline
+    name: default
     namespace: default
 roleRef:
   kind: Role

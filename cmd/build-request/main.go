@@ -83,7 +83,18 @@ func shouldSkip(ws *artifact.Workspace) (bool, string) {
 		return true, strings.TrimSpace(ws.ReadOptional(artifact.FileError))
 	}
 	diff, err := ws.Read(artifact.FileDiff)
-	if err != nil || len(diff) == 0 {
+	if err != nil {
+		if os.IsNotExist(err) {
+			return true, "No reviewable changes found in this diff."
+		}
+		// A non-not-exist error (e.g. permission denied because this
+		// step's container runs as a different UID than the one that
+		// wrote the shared workspace) means the diff exists but
+		// couldn't be read - that's an infra bug, not "nothing to
+		// review", so it must not be silently swallowed as a skip.
+		return true, fmt.Sprintf("reading %s: %v", artifact.FileDiff, err)
+	}
+	if len(diff) == 0 {
 		return true, "No reviewable changes found in this diff."
 	}
 	return false, ""

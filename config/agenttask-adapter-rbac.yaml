@@ -1,0 +1,52 @@
+# Grants agenttask-adapter-lightspeed's ServiceAccount (deployed in the
+# cluster-wide agenttask-system namespace) the same permissions it already
+# has there, but scoped to this namespace instead.
+#
+# The adapter's own upstream config/rbac.yaml
+# (github.com/openshift-pipelines/agenttask-adapter-lightspeed) only binds
+# a namespaced Role within agenttask-system, so its ServiceAccount has zero
+# visibility into any other namespace by default. Our pipeline's "review"
+# PipelineTask creates its CustomRun in this namespace (matching where
+# agenttask-pr-review.yaml's AgentTask CR lives), so without this
+# additional RoleBinding the adapter can never see/reconcile it: Tekton's
+# own CustomRun/AgentTask resolution fails validation before a CustomRun
+# is even created, and the "review" step is skipped/fails outright.
+#
+# RoleBindings may reference a ServiceAccount subject from a different
+# namespace than the Role/RoleBinding itself, which is exactly what this
+# does - it does not modify or duplicate the adapter's own deployment.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: agenttask-adapter
+  namespace: default
+rules:
+  - apiGroups: ["agent.tekton.dev"]
+    resources: ["agenttasks"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["tekton.dev"]
+    resources: ["customruns"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["tekton.dev"]
+    resources: ["customruns/status", "customruns/finalizers"]
+    verbs: ["get", "patch", "update"]
+  - apiGroups: ["agentic.openshift.io"]
+    resources: ["agenticruns"]
+    verbs: ["create", "delete", "get", "list", "watch"]
+  - apiGroups: ["agentic.openshift.io"]
+    resources: ["agenticrunapprovals", "analysisresults"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agenttask-adapter
+  namespace: default
+subjects:
+  - kind: ServiceAccount
+    name: lightspeed-agenttask-adapter
+    namespace: agenttask-system
+roleRef:
+  kind: Role
+  name: agenttask-adapter
+  apiGroup: rbac.authorization.k8s.io

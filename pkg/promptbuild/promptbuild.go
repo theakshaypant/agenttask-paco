@@ -200,22 +200,77 @@ func ExtractEmbedded(text string) (prose string, embedded *EmbeddedReview, ok bo
 }
 
 // MaxRequestBytes is the agenttask-adapter-lightspeed analysis-v1 profile's
-// hard limit on the single "request" param.
+// own hard limit on the single "request" param. It is NOT the binding
+// constraint on a real pipeline run - see encodedResultBudget below - but
+// still bounds the raw (pre-JSON-encoding) prompt length as a sane upper
+// bound before the tighter, encoding-aware check runs.
 const MaxRequestBytes = 32768
+
+// encodedResultBudget bounds the *JSON-encoded* size of the rendered
+// "request" prompt, well below Kubernetes' 4096-byte hard cap on a pod's
+// termination message. "request" flows into the "review" AgentTask step
+// as a Tekton Task Result (build-request's step reads it via
+// $(tasks.build-request.results.request)), and Task Results are delivered
+// through the termination message - Tekton JSON-encodes the whole results
+// array (this Task's "request" and "skip" results, plus struct/array
+// overhead, plus Tekton's own internal step-state bookkeeping that shares
+// the same termination message file) into that single 4096-byte file.
+// JSON-escaping a prompt full of diff/markdown newlines, quotes, and
+// backticks - and Go's encoding/json default HTML-escaping of "<"/">"/"&"
+// into "\u003c"/"\u003e"/"\u0026" (PR review feedback routinely contains
+// HTML from bot comments) - inflates its encoded size well past its raw
+// byte length by an amount that isn't reliably predictable up front, so
+// Bound() measures the actual encoded size instead of guessing a fixed
+// raw-byte cutoff. Exceeding the real cap doesn't fail cleanly either:
+// Kubernetes silently truncates the termination message file mid-content,
+// and Tekton then fails the whole Task with "unexpected end of JSON
+// input" trying to parse the cut-off result. Empirically, real pipeline
+// runs were still hitting that truncation with an encoded "request"
+// value around ~3.1-3.2KB, well under the previous 3500 budget - the
+// non-result overhead sharing the same 4096-byte file is larger than a
+// fixed few hundred bytes assumed earlier. 1200 leaves a large safety
+// margin under the real observed failure point.
+const encodedResultBudget = 2600
 
 const truncationMarker = "\n\n[... diff truncated to fit the review engine's request size limit ...]\n"
 
-// Bound truncates prompt to at most MaxRequestBytes, cutting from the end
-// (the diff, which is appended last) and appending a clear marker so the
-// model knows the input was cut short rather than silently reviewing a
-// partial diff.
+// Bound truncates prompt so that it both fits MaxRequestBytes and, once
+// JSON-encoded as a Tekton Task Result, fits encodedResultBudget. It cuts
+// from the end (the diff, which is appended last) and appends a clear
+// marker so the model knows the input was cut short rather than silently
+// reviewing a partial diff.
 func Bound(prompt string) string {
-	if len(prompt) <= MaxRequestBytes {
+	if len(prompt) > MaxRequestBytes {
+		prompt = prompt[:MaxRequestBytes]
+	}
+	if encodedLen(prompt) <= encodedResultBudget {
 		return prompt
 	}
-	keep := MaxRequestBytes - len(truncationMarker)
-	if keep < 0 {
-		keep = 0
+	// Shrink geometrically until the marker-appended result's encoded
+	// size fits the budget. Encoding overhead only ever adds bytes (it
+	// never removes them), so shrinking the raw input strictly shrinks
+	// the encoded output - this loop always terminates (worst case at
+	// keep == 0).
+	keep := len(prompt)
+	for keep > 0 {
+		keep -= (keep + 9) / 10 // shrink by at least 10% each attempt
+		if encodedLen(prompt[:keep]+truncationMarker) <= encodedResultBudget {
+			return prompt[:keep] + truncationMarker
+		}
 	}
-	return prompt[:keep] + truncationMarker
+	return truncationMarker
+}
+
+// encodedLen reports the size, in bytes, of s once JSON-encoded as a
+// Task Result value - i.e. what actually counts against Tekton's
+// termination-message size cap, as opposed to len(s)'s raw byte count.
+func encodedLen(s string) int {
+	b, err := json.Marshal(s)
+	if err != nil {
+		// s is a Go string, so this is unreachable, but fail safe by
+		// reporting an unbounded size rather than silently under-
+		// counting.
+		return len(s) * 2
+	}
+	return len(b)
 }

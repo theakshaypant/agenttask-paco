@@ -4,3 +4,4 @@ namespace: default
 resources:
   - agenttask-pr-review.yaml
   - rbac.yaml
+  - agenttask-adapter-rbac.yaml

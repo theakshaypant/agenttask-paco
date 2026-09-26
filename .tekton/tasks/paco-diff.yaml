@@ -29,6 +29,7 @@ spec:
   steps:
     - name: diff
       image: ghcr.io/chmouel/agents-image:latest
+      command: [paco]
       env:
         - name: GH_TOKEN
           valueFrom:

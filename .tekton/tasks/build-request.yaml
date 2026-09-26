@@ -33,6 +33,13 @@ spec:
         echo "=== End workspace contents ==="
     - name: build-request
       image: ghcr.io/theakshaypant/agenttask-paco/build-request:latest
+      # Must run as the same UID that paco-diff's agents-image writes the
+      # shared workspace artifacts as (1000). Without this, this step's
+      # default distroless nonroot UID (65532) gets permission denied
+      # reading paco-diff's 0600 files - which shouldSkip() mistook for
+      # "no reviewable diff", silently skipping the review step.
+      securityContext:
+        runAsUser: 1000
       env:
         - name: TRIGGER_COMMENT
           value: $(params.trigger-comment)

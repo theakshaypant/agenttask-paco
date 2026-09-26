@@ -28,6 +28,12 @@ spec:
   steps:
     - name: translate-result
       image: ghcr.io/theakshaypant/agenttask-paco/translate-result:latest
+      # Must run as the same UID paco-diff/paco-post's agents-image uses
+      # (1000) so the .paco-review.json this step writes is later
+      # readable by paco-post (which does not run as this image's
+      # default distroless nonroot UID 65532).
+      securityContext:
+        runAsUser: 1000
       # Requires the ServiceAccount running this PipelineRun to be bound to
       # config/rbac.yaml's Role (get on agentic.openshift.io/v1alpha1
       # analysisresults).
