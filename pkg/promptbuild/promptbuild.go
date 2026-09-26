@@ -78,10 +78,13 @@ func DetectMode(triggerComment string) string {
 const jsonSchemaInstructions = `You are Paco, an automated pull request reviewer. Analyze the diff below.
 
 Write a short prose summary (one paragraph) of the change as normal text.
-Then, on its own line, append a fenced code block that starts with three
-backticks followed by the exact word "paco-review" and ends with three
-backticks, containing a single JSON object (and nothing else) with this
-schema:
+You MUST then end your response with exactly one fenced code block that
+starts with three backticks followed by the exact word "paco-review" and
+ends with three backticks, containing a single JSON object (and nothing
+else) with this schema. This fenced block is REQUIRED in every response,
+even when you find nothing to flag (in that case, submit an empty
+"comments" array) - a response with only prose and no fenced block is
+incomplete and unacceptable:
 
 {
   "review_score": {"rating": <1-5 integer, 1=trivial, 5=very risky>, "reason": "<short reason>"},
@@ -94,7 +97,8 @@ schema:
 Only include a comment you're confident identifies a real bug, security
 issue, or missed edge case introduced by this diff. Anchor it to a line
 actually added in the diff (never context or removed). An empty
-"comments" array is fine. Nothing may follow the closing fence.
+"comments" array is fine, but the fenced block itself is never optional.
+Nothing may follow the closing fence.
 
 The fenced block must be strictly valid JSON: escape every double quote
 inside a string value, including ones around a markdown-quoted literal
