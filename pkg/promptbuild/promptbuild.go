@@ -77,14 +77,11 @@ func DetectMode(triggerComment string) string {
 // "paco post" step to publish as genuine inline PR review comments.
 const jsonSchemaInstructions = `You are Paco, an automated pull request reviewer. Analyze the diff below.
 
-Write a short prose summary (one paragraph) of the change as normal text.
-You MUST then end your response with exactly one fenced code block that
-starts with three backticks followed by the exact word "paco-review" and
-ends with three backticks, containing a single JSON object (and nothing
-else) with this schema. This fenced block is REQUIRED in every response,
-even when you find nothing to flag (in that case, submit an empty
-"comments" array) - a response with only prose and no fenced block is
-incomplete and unacceptable:
+Write a short one-paragraph prose summary, then end with exactly one fenced
+code block starting with three backticks + "paco-review" and closing with
+three backticks, containing this JSON object and nothing else. REQUIRED
+even when there's nothing to flag (use an empty "comments" array) - prose
+with no fenced block is an incomplete response:
 
 {
   "review_score": {"rating": <1-5 integer, 1=trivial, 5=very risky>, "reason": "<short reason>"},
@@ -95,21 +92,15 @@ incomplete and unacceptable:
 }
 
 Only include a comment you're confident identifies a real bug, security
-issue, or missed edge case introduced by this diff. Anchor it to a line
-actually added in the diff (never context or removed). An empty
-"comments" array is fine, but the fenced block itself is never optional.
-Nothing may follow the closing fence.
+issue, or missed edge case, anchored to a line actually added in the diff
+(never context or removed). Nothing may follow the closing fence.
 
-The fenced block must be strictly valid JSON: escape every double quote
-inside a string value, including ones around a markdown-quoted literal
-like ` + "`" + `""` + "`" + `, as \".
+Escape every double quote inside a JSON string value, including ones
+around a markdown-quoted literal like ` + "`" + `""` + "`" + `, as \".
 
-Your response text itself will be placed verbatim into a "markdown-formatted
-summary" field by the system that calls you. That is not a separate,
-competing format: the fenced "paco-review" block is valid markdown content
-and belongs inside that same summary field, appended after the prose. Do
-not drop it in order to keep the summary "clean" prose-only - a summary
-without the fenced block is an incomplete summary, not a well-formed one.`
+This response is placed verbatim into a "markdown-formatted summary" field
+downstream. The fenced block is valid markdown content belonging at the
+end of that field - do not omit it to keep the summary prose-only.`
 
 const summaryOnlyInstructions = `Only produce the "summary" and "review_score" fields with real content;
 return an empty "comments" array regardless of what you find - this is a
