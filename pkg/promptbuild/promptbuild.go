@@ -102,7 +102,14 @@ Nothing may follow the closing fence.
 
 The fenced block must be strictly valid JSON: escape every double quote
 inside a string value, including ones around a markdown-quoted literal
-like ` + "`" + `""` + "`" + `, as \".`
+like ` + "`" + `""` + "`" + `, as \".
+
+Your response text itself will be placed verbatim into a "markdown-formatted
+summary" field by the system that calls you. That is not a separate,
+competing format: the fenced "paco-review" block is valid markdown content
+and belongs inside that same summary field, appended after the prose. Do
+not drop it in order to keep the summary "clean" prose-only - a summary
+without the fenced block is an incomplete summary, not a well-formed one.`
 
 const summaryOnlyInstructions = `Only produce the "summary" and "review_score" fields with real content;
 return an empty "comments" array regardless of what you find - this is a
