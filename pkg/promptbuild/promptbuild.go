@@ -91,18 +91,14 @@ schema:
   ]
 }
 
-Only include a comment when you are confident it identifies a real bug,
-security issue, or missed edge case introduced by this diff. Anchor every
-comment to a line that was actually added in the diff (never a context or
-removed line). It is fine for "comments" to be an empty array. Do not put
-any text after the closing fence of the "paco-review" code block.
+Only include a comment you're confident identifies a real bug, security
+issue, or missed edge case introduced by this diff. Anchor it to a line
+actually added in the diff (never context or removed). An empty
+"comments" array is fine. Nothing may follow the closing fence.
 
-The fenced block must be strictly valid JSON. Every double-quote character
-inside a string value - including quotes you would normally use to
-markdown-quote an identifier or literal, like ` + "`" + `""` + "`" + ` or ` + "`" + `"foo"` + "`" + ` - must be
-escaped as \" or avoided entirely (prefer naming things without quotes,
-e.g. "an empty string" instead of ` + "`" + `""` + "`" + `). Do not wrap quoted text in
-backticks inside a string value.`
+The fenced block must be strictly valid JSON: escape every double quote
+inside a string value, including ones around a markdown-quoted literal
+like ` + "`" + `""` + "`" + `, as \".`
 
 const summaryOnlyInstructions = `Only produce the "summary" and "review_score" fields with real content;
 return an empty "comments" array regardless of what you find - this is a
@@ -325,9 +321,11 @@ const MaxRequestBytes = 32768
 // runs were still hitting that truncation with an encoded "request"
 // value around ~3.1-3.2KB, well under the previous 3500 budget - the
 // non-result overhead sharing the same 4096-byte file is larger than a
-// fixed few hundred bytes assumed earlier. 1200 leaves a large safety
-// margin under the real observed failure point.
-const encodedResultBudget = 2600
+// fixed few hundred bytes assumed earlier. 2900 leaves a real margin
+// (~200-300 bytes) below that observed failure point while still fitting
+// realistic small multi-file diffs plus the fixed schema/instructions
+// overhead.
+const encodedResultBudget = 2900
 
 const truncationMarker = "\n\n[... diff truncated to fit the review engine's request size limit ...]\n"
 
