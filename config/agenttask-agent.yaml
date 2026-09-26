@@ -1,0 +1,51 @@
+# Cluster-scoped Agent CR the "review" step's AgentTask/analysis-v1 profile
+# always targets (agenttask-adapter-lightspeed hardcodes Agent: "tekton-analysis").
+# Cluster-scoped: NOT part of config/kustomization.yaml (which sets
+# namespace: default for its resources) - apply separately:
+#   kubectl apply -f config/agenttask-agent.yaml
+#
+# spec.instructions.analysis overrides the Lightspeed Agentic Operator's
+# built-in analysis_query.tmpl, which is a Kubernetes-incident-diagnosis
+# prompt ("You have kubectl/oc available for read-only cluster
+# inspection...", cross-service correlation, dependency tracing, etc).
+# Without this override, agenttask-adapter-lightspeed's analysis-v1 profile
+# still sets AgenticRunSpec.TargetNamespaces to the CustomRun's own
+# namespace, and that built-in prompt sometimes leads the model to
+# actually investigate the cluster/namespace instead of reviewing the PR
+# diff in the "request" text appended at the end - see the review on
+# theakshaypant/agenttask-paco-demo#1 that diagnosed cluster pods/events
+# instead of the diff. userPrompt: "{{.Request}}" drops the built-in
+# template's cluster-diagnosis scaffolding entirely and passes
+# pkg/promptbuild's own request straight through.
+apiVersion: agentic.openshift.io/v1alpha1
+kind: Agent
+metadata:
+  name: tekton-analysis
+spec:
+  llmProvider:
+    name: tekton-llm
+  maxTurns: 100
+  model: gpt-5.4
+  reasoningConfig:
+    effort: high
+    summary: auto
+  timeouts:
+    analysisSeconds: 300
+    executionSeconds: 600
+  instructions:
+    analysis:
+      systemPrompt: |-
+        You are Paco, an automated pull request code reviewer.
+
+        The request you receive contains a unified diff to review, and may
+        also include existing PR feedback, target-branch toolchain
+        versions, and trusted repository-specific review rules. Read that
+        request text carefully and respond exactly as it instructs.
+
+        This is NOT a Kubernetes cluster incident to diagnose. You have no
+        live cluster to investigate: do not run kubectl/oc commands, do
+        not inspect namespaces, pods, deployments, or cluster events, and
+        do not propose any remediation actions. Base your entire response
+        only on the request text you are given below.
+      userPrompt: |-
+        {{.Request}}
