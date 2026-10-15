@@ -84,7 +84,7 @@ func shouldSkip(ws *artifact.Workspace) (bool, string) {
 	}
 	diff, err := ws.Read(artifact.FileDiff)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if !os.IsNotExist(err) {
 			return true, "No reviewable changes found in this diff."
 		}
 		// A non-not-exist error (e.g. permission denied because this
